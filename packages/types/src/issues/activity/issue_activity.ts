@@ -38,6 +38,8 @@ export type TIssueActivity = {
   new_identifier: string | undefined;
   epoch: number;
   issue_comment: string | null;
+  // Origin of the change (e.g. "pi" when applied through the AI assistant).
+  source?: string | null;
   source_data: {
     source: EInboxIssueSource;
     source_email?: string;

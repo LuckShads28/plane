@@ -1581,6 +1581,15 @@ def issue_activity(
             )
 
         # Save all the values to database
+        # Tag every activity with its origin (e.g. "pi" when applied via the AI assistant).
+        try:
+            activity_source = json.loads(requested_data).get("source") if requested_data else None
+        except (ValueError, TypeError):
+            activity_source = None
+        if activity_source:
+            for activity in issue_activities:
+                activity.source = activity_source
+
         issue_activities_created = IssueActivity.objects.bulk_create(issue_activities)
 
         if notification:

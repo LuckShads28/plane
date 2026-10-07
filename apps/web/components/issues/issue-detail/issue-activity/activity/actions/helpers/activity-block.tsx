@@ -50,6 +50,7 @@ export function IssueActivityBlockComponent(props: TIssueActivityBlockComponent)
           <IssueUser activityId={activityId} customUserName={customUserName} />
         )}
         <span> {children} </span>
+        {activity?.source === "pi" && <span className="text-tertiary"> through Pi</span>}
         <span>
           <Tooltip
             label={`${renderFormattedDate(activity.created_at)}, ${renderFormattedTime(activity.created_at)}`}

@@ -436,6 +436,8 @@ class IssueActivity(ProjectBaseModel):
     old_identifier = models.UUIDField(null=True)
     new_identifier = models.UUIDField(null=True)
     epoch = models.FloatField(null=True)
+    # Origin of the change (e.g. "pi" when applied through the AI assistant).
+    source = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         verbose_name = "Issue Activity"
