@@ -16,6 +16,7 @@ import useDebounce from "@/hooks/use-debounce";
 import { WorkspaceService } from "@/services/workspace.service";
 // local imports
 import type { TPowerKContext, TPowerKPageType } from "../../core/types";
+import { PowerKModalAskAI } from "./ask-ai";
 import { PowerKModalNoSearchResultsCommand } from "./no-results-command";
 import { PowerKModalSearchResults } from "./search-results";
 // services init
@@ -99,6 +100,8 @@ export function PowerKModalSearchMenu(props: Props) {
           </h5>
         </div>
       )}
+
+      {searchTerm.trim() !== "" && <PowerKModalAskAI searchTerm={searchTerm} projectId={projectId?.toString()} />}
 
       {/* Show empty state only when not loading and no results */}
       {!isSearching && resultsCount === 0 && searchTerm.trim() !== "" && debouncedSearchTerm.trim() !== "" && (

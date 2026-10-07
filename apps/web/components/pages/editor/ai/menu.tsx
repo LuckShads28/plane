@@ -45,6 +45,36 @@ const MENU_ITEMS: {
     icon: AiStar1Outline,
     label: "Ask Pi",
   },
+  {
+    key: AI_EDITOR_TASKS.IMPROVE_WRITING,
+    icon: AiStar1Outline,
+    label: "Improve writing",
+  },
+  {
+    key: AI_EDITOR_TASKS.FIX_SPELLING_GRAMMAR,
+    icon: AiStar1Outline,
+    label: "Fix spelling & grammar",
+  },
+  {
+    key: AI_EDITOR_TASKS.SHORTEN,
+    icon: AiStar1Outline,
+    label: "Make shorter",
+  },
+  {
+    key: AI_EDITOR_TASKS.EXPAND_WRITING,
+    icon: AiStar1Outline,
+    label: "Make longer",
+  },
+  {
+    key: AI_EDITOR_TASKS.SUMMARIZE,
+    icon: AiStar1Outline,
+    label: "Summarize",
+  },
+  {
+    key: AI_EDITOR_TASKS.TRANSLATE,
+    icon: AiStar1Outline,
+    label: "Translate",
+  },
 ];
 
 const TONES_LIST = [
@@ -76,17 +106,35 @@ export function EditorAIMenu(props: Props) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   // refs
   const responseContainerRef = useRef<HTMLDivElement>(null);
+  const lastAskPiQuery = useRef<string>("");
   // params
   const handleGenerateResponse = async (payload: TTaskPayload) => {
     if (!workspaceSlug) return;
     await aiService.performEditorTask(workspaceSlug.toString(), payload).then((res) => setResponse(res.response));
+  };
+  const handleAskPi = async (prompt: string) => {
+    if (!workspaceSlug || !prompt.trim()) return;
+    lastAskPiQuery.current = prompt;
+    setResponse(undefined);
+    setIsRegenerating(true);
+    try {
+      const res = await aiService.chat(workspaceSlug.toString(), { prompt });
+      setResponse(res.response);
+      responseContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setIsRegenerating(false);
+    }
   };
   // handle task click
   const handleClick = async (key: AI_EDITOR_TASKS) => {
     const selection = editorRef?.getSelectedText();
     if (!selection || activeTask === key) return;
     setActiveTask(key);
-    if (key === AI_EDITOR_TASKS.ASK_ANYTHING) return;
+    if (key === AI_EDITOR_TASKS.ASK_ANYTHING) {
+      setResponse(undefined);
+      setIsRegenerating(false);
+      return;
+    }
     setResponse(undefined);
     setIsRegenerating(false);
     await handleGenerateResponse({
@@ -96,6 +144,10 @@ export function EditorAIMenu(props: Props) {
   };
   // handle re-generate response
   const handleRegenerate = async () => {
+    if (activeTask === AI_EDITOR_TASKS.ASK_ANYTHING) {
+      if (lastAskPiQuery.current) await handleAskPi(lastAskPiQuery.current);
+      return;
+    }
     const selection = editorRef?.getSelectedText();
     if (!selection || !activeTask) return;
     setIsRegenerating(true);
@@ -205,6 +257,7 @@ export function EditorAIMenu(props: Props) {
               isRegenerating={isRegenerating}
               response={response}
               workspaceSlug={workspaceSlug}
+              onSubmit={handleAskPi}
             />
           ) : (
             <>

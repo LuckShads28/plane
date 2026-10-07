@@ -34,6 +34,7 @@ import { useAppRouter } from "@/hooks/use-app-router";
 import useKeypress from "@/hooks/use-keypress";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // services
+import { AIService } from "@/services/ai.service";
 import { FileService } from "@/services/file.service";
 // local imports
 import { InboxIssueDescription } from "./issue-description";
@@ -41,6 +42,7 @@ import { InboxIssueProperties } from "./issue-properties";
 import { InboxIssueTitle } from "./issue-title";
 
 const fileService = new FileService();
+const aiService = new AIService();
 
 type TInboxIssueCreateRoot = {
   workspaceSlug: string;
@@ -82,6 +84,7 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
   // states
   const [createMore, setCreateMore] = useState<boolean>(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [isTriaging, setIsTriaging] = useState(false);
   const [formData, setFormData] = useState<Partial<TIssue>>(defaultIssueData);
   const handleFormData = useCallback(
     <T extends keyof Partial<TIssue>>(issueKey: T, issueValue: Partial<TIssue>[T]) => {
@@ -92,6 +95,34 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
     },
     [formData]
   );
+
+  const handleAITriage = useCallback(async () => {
+    const name = formData.name?.trim() ?? "";
+    const description = (formData.description_html ?? "").replace(/<[^>]+>/g, " ").trim();
+    if (!name && !description) {
+      setToast({ type: "error", title: "Error!", message: "Add a title or description before running AI triage." });
+      return;
+    }
+    setIsTriaging(true);
+    try {
+      const result = await aiService.triage(workspaceSlug, projectId, { name, description });
+      setFormData((prev) => ({
+        ...prev,
+        priority: (result.priority as TIssue["priority"]) ?? prev.priority,
+        label_ids: result.label_ids?.length ? result.label_ids : prev.label_ids,
+        assignee_ids: result.assignee_ids?.length ? result.assignee_ids : prev.assignee_ids,
+      }));
+      setToast({
+        type: "success",
+        title: "AI triage",
+        message: result.summary || "Suggestions applied. Review before creating.",
+      });
+    } catch {
+      setToast({ type: "error", title: "Error!", message: "AI triage failed. Please try again." });
+    } finally {
+      setIsTriaging(false);
+    }
+  }, [formData.name, formData.description_html, workspaceSlug, projectId]);
 
   const { getIndex } = getTabIndex(ETabIndices.INTAKE_ISSUE_FORM, isMobile);
 
@@ -222,6 +253,20 @@ export const InboxIssueCreateRoot = observer(function InboxIssueCreateRoot(props
                   data={formData}
                   handleData={handleFormData}
                 />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    stretch="auto"
+                    type="button"
+                    onClick={handleAITriage}
+                    loading={isTriaging}
+                    label="AI triage"
+                  />
+                  <span className="text-11 text-tertiary">
+                    Suggest priority, labels, and assignee from the title and description.
+                  </span>
+                </div>
               </div>
             </DialogBody>
           </DialogMain>

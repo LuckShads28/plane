@@ -37,7 +37,7 @@ type TInboxIssueDescription = {
   onAssetUpload?: (assetId: string) => void;
 };
 
-// TODO: have to implement GPT Assistance
+// AI triage (priority/labels/assignee suggestions) is triggered from the create root.
 export const InboxIssueDescription = observer(function InboxIssueDescription(props: TInboxIssueDescription) {
   const {
     containerClassName,

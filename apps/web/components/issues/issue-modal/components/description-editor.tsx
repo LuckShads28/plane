@@ -120,19 +120,24 @@ export const IssueDescriptionEditor = observer(function IssueDescriptionEditor(p
     setIAmFeelingLucky(true);
 
     aiService
-      .createGptTask(workspaceSlug.toString(), {
+      .copilot(workspaceSlug.toString(), projectId.toString(), {
         prompt: issueName,
-        task: "Generate a proper description for this work item.",
+        title: issueName,
+        mode: "full",
       })
       .then((res) => {
-        if (res.response === "")
+        const generatedHtml = res.description_html ?? "";
+        if (!generatedHtml) {
           setToast({
             type: "error",
             title: "Error!",
             message:
               "Work item title isn't informative enough to generate the description. Please try with a different title.",
           });
-        else handleAiAssistance(res.response_html);
+          return null;
+        }
+        handleAiAssistance(generatedHtml);
+        return generatedHtml;
       })
       .catch((err) => {
         const error = err?.data?.error;

@@ -22,16 +22,30 @@ type Props = {
   isRegenerating: boolean;
   response: string | undefined;
   workspaceSlug: string;
+  onSubmit: (query: string) => Promise<void> | void;
 };
 
 export function AskPiMenu(props: Props) {
-  const { handleInsertText, handleRegenerate, isRegenerating, response, workspaceSlug } = props;
+  const { handleInsertText, handleRegenerate, isRegenerating, response, workspaceSlug, onSubmit } = props;
   // states
   const [query, setQuery] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // store hooks
   const { getWorkspaceBySlug } = useWorkspace();
   // derived values
   const workspaceId = getWorkspaceBySlug(workspaceSlug)?.id ?? "";
+
+  const handleSend = async () => {
+    const value = query.trim();
+    if (!value || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onSubmit(value);
+      setQuery("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -95,7 +109,7 @@ export function AskPiMenu(props: Props) {
             </div>
           </div>
         ) : (
-          <p className="text-13 text-secondary">AI is answering...</p>
+          <p className="text-13 text-secondary">{isSubmitting ? "AI is answering..." : "Ask Pi anything."}</p>
         )}
       </div>
       <div className="px-4 py-3">
@@ -107,12 +121,25 @@ export function AskPiMenu(props: Props) {
             type="text"
             className="w-full border-none bg-transparent text-13 outline-none placeholder:text-placeholder"
             value={query}
+            disabled={isSubmitting}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
             placeholder="Tell AI what to do..."
           />
-          <span className="grid size-4 flex-shrink-0 place-items-center">
+          <button
+            type="button"
+            aria-label="Send"
+            disabled={isSubmitting || !query.trim()}
+            className="grid size-4 flex-shrink-0 place-items-center disabled:opacity-40"
+            onClick={() => void handleSend()}
+          >
             <CircleArrowUp className="size-4 text-secondary" />
-          </span>
+          </button>
         </div>
       </div>
     </>
