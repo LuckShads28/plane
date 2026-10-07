@@ -4,10 +4,9 @@
 
 # Python import
 import os
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
 
 # Third party import
-from openai import OpenAI
 import requests
 
 from rest_framework import status
@@ -18,13 +17,14 @@ from plane.app.permissions import ROLE, allow_permission
 from plane.app.serializers import ProjectLiteSerializer, WorkspaceLiteSerializer
 from plane.db.models import Project, Workspace
 from plane.license.utils.instance_value import get_configuration_value
+from plane.utils.ai import chat, get_ai_config
 from plane.utils.exception_logger import log_exception
 
 from ..base import BaseAPIView
 
 
 class LLMProvider:
-    """Base class for LLM provider configurations"""
+    """Backwards-compatible provider metadata (see ``plane.utils.ai.config``)."""
 
     name: str = ""
     models: List[str] = []
@@ -51,98 +51,45 @@ class AnthropicProvider(LLMProvider):
         "claude-3-5-sonnet-20240620",
         "claude-3-haiku-20240307",
         "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229",
-        "claude-2.1",
-        "claude-2",
-        "claude-instant-1.2",
-        "claude-instant-1",
     ]
-    default_model = "claude-3-sonnet-20240229"
+    default_model = "claude-3-5-sonnet-20240620"
 
 
 class GeminiProvider(LLMProvider):
     name = "Gemini"
     models = ["gemini-pro", "gemini-1.5-pro-latest", "gemini-pro-vision"]
-    default_model = "gemini-pro"
+    default_model = "gemini-1.5-pro-latest"
 
 
 SUPPORTED_PROVIDERS = {
     "openai": OpenAIProvider,
+    "openai-compatible": OpenAIProvider,
+    "ollama": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "gemini": GeminiProvider,
 }
 
 
 def get_llm_config() -> Tuple[str | None, str | None, str | None]:
-    """
-    Helper to get LLM configuration values, returns:
-        - api_key, model, provider
-    """
-    api_key, provider_key, model = get_configuration_value(
-        [
-            {
-                "key": "LLM_API_KEY",
-                "default": os.environ.get("LLM_API_KEY", None),
-            },
-            {
-                "key": "LLM_PROVIDER",
-                "default": os.environ.get("LLM_PROVIDER", "openai"),
-            },
-            {
-                "key": "LLM_MODEL",
-                "default": os.environ.get("LLM_MODEL", None),
-            },
-        ]
-    )
-
-    provider = SUPPORTED_PROVIDERS.get(provider_key.lower())
-    if not provider:
-        log_exception(ValueError(f"Unsupported provider: {provider_key}"))
+    """Return ``(api_key, model, provider)`` for the effective instance config."""
+    config = get_ai_config()
+    if not config.configured:
+        log_exception(ValueError("LLM provider is not configured"))
         return None, None, None
-
-    if not api_key:
-        log_exception(ValueError(f"Missing API key for provider: {provider.name}"))
-        return None, None, None
-
-    # If no model specified, use provider's default
-    if not model:
-        model = provider.default_model
-
-    # Validate model is supported by provider
-    if model not in provider.models:
-        log_exception(
-            ValueError(
-                f"Model {model} not supported by {provider.name}. Supported models: {', '.join(provider.models)}"
-            )
-        )
-        return None, None, None
-
-    return api_key, model, provider_key
+    return config.api_key, config.model, config.provider
 
 
-def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> Tuple[str | None, str | None]:
-    """Helper to get LLM completion response"""
-    final_text = task + "\n" + prompt
+def get_llm_response(
+    task, prompt, api_key: str | None = None, model: str | None = None, provider: str | None = None
+) -> Tuple[str | None, str | None]:
+    """Backwards-compatible completion helper delegating to the AI client."""
+    final_text = f"{task}\n{prompt or ''}"
     try:
-        # For Gemini, prepend provider name to model
-        if provider.lower() == "gemini":
-            model = f"gemini/{model}"
-
-        client = OpenAI(api_key=api_key)
-        chat_completion = client.chat.completions.create(
-            model=model, messages=[{"role": "user", "content": final_text}]
-        )
-        text = chat_completion.choices[0].message.content
+        text = chat([{"role": "user", "content": final_text}])
         return text, None
     except Exception as e:
         log_exception(e)
-        error_type = e.__class__.__name__
-        if error_type == "AuthenticationError":
-            return None, f"Invalid API key for {provider}"
-        elif error_type == "RateLimitError":
-            return None, f"Rate limit exceeded for {provider}"
-        else:
-            return None, f"Error occurred while generating response from {provider}"
+        return None, str(e)
 
 
 class GPTIntegrationEndpoint(BaseAPIView):
@@ -150,7 +97,7 @@ class GPTIntegrationEndpoint(BaseAPIView):
     def post(self, request, slug, project_id):
         api_key, model, provider = get_llm_config()
 
-        if not api_key or not model or not provider:
+        if not api_key and not provider:
             return Response(
                 {"error": "LLM provider API key and model are required"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -186,7 +133,7 @@ class WorkspaceGPTIntegrationEndpoint(BaseAPIView):
     def post(self, request, slug):
         api_key, model, provider = get_llm_config()
 
-        if not api_key or not model or not provider:
+        if not api_key and not provider:
             return Response(
                 {"error": "LLM provider API key and model are required"},
                 status=status.HTTP_400_BAD_REQUEST,

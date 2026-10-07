@@ -232,6 +232,54 @@ llm_config_variables = [
         "category": "AI",
         "is_encrypted": False,
     },
+    {
+        "key": "LLM_BASE_URL",
+        "value": os.environ.get("LLM_BASE_URL", ""),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_EMBEDDING_MODEL",
+        "value": os.environ.get("LLM_EMBEDDING_MODEL", ""),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_EMBEDDING_DIMENSIONS",
+        "value": os.environ.get("LLM_EMBEDDING_DIMENSIONS", "1536"),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_EMBEDDING_MAX_TOKENS",
+        "value": os.environ.get("LLM_EMBEDDING_MAX_TOKENS", "8191"),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_CONTEXT_WINDOW",
+        "value": os.environ.get("LLM_CONTEXT_WINDOW", "128000"),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_MAX_OUTPUT_TOKENS",
+        "value": os.environ.get("LLM_MAX_OUTPUT_TOKENS", "4096"),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_RESERVED_TOKENS",
+        "value": os.environ.get("LLM_RESERVED_TOKENS", "256"),
+        "category": "AI",
+        "is_encrypted": False,
+    },
+    {
+        "key": "LLM_TEMPERATURE",
+        "value": os.environ.get("LLM_TEMPERATURE", "0.2"),
+        "category": "AI",
+        "is_encrypted": False,
+    },
     # Deprecated, use LLM_MODEL
     {
         "key": "GPT_ENGINE",

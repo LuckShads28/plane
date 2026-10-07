@@ -184,6 +184,17 @@ from .external.base import (
     UnsplashEndpoint,
     WorkspaceGPTIntegrationEndpoint,
 )
+from .external.ai import (
+    IntakeTriageEndpoint,
+    RephraseGrammarEndpoint,
+    WorkItemCopilotEndpoint,
+    WorkspaceAIAskEndpoint,
+    WorkspaceAIAssistantEndpoint,
+    WorkspaceAIChatEndpoint,
+    WorkspaceAIConfigurationEndpoint,
+    WorkspaceAISearchEndpoint,
+    WorkspaceAIWorkItemsEndpoint,
+)
 from .estimate.base import (
     ProjectEstimatePointEndpoint,
     BulkEstimatePointEndpoint,

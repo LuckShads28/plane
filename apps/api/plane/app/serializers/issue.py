@@ -271,6 +271,13 @@ class IssueCreateSerializer(BaseSerializer):
             except IntegrityError:
                 pass
 
+        try:
+            from plane.utils.ai.indexing import schedule_entity_embedding
+
+            schedule_entity_embedding("work_item", str(issue.id))
+        except Exception:
+            pass
+
         return issue
 
     def update(self, instance, validated_data):
@@ -327,7 +334,16 @@ class IssueCreateSerializer(BaseSerializer):
 
         # Time updation occues even when other related models are updated
         instance.updated_at = timezone.now()
-        return super().update(instance, validated_data)
+        issue = super().update(instance, validated_data)
+
+        try:
+            from plane.utils.ai.indexing import schedule_entity_embedding
+
+            schedule_entity_embedding("work_item", str(issue.id))
+        except Exception:
+            pass
+
+        return issue
 
 
 class IssueActivitySerializer(BaseSerializer):

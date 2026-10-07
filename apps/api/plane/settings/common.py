@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     # Inhouse apps
     "plane.analytics",
     "plane.app",
@@ -152,6 +153,9 @@ REST_FRAMEWORK = {
 
 # API key throttle rate (DRF SimpleRateThrottle format, e.g. "60/minute")
 API_KEY_RATE_LIMIT = os.environ.get("API_KEY_RATE_LIMIT", "60/minute")
+
+# AI endpoint throttle rate (per user)
+AI_RATE_LIMIT = os.environ.get("AI_RATE_LIMIT", "50/month")
 
 # Django Auth Backend
 AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)  # default
@@ -348,6 +352,8 @@ CELERY_IMPORTS = (
     # issue version tasks
     "plane.bgtasks.issue_version_sync",
     "plane.bgtasks.issue_description_version_sync",
+    # ai embedding / RAG indexing
+    "plane.bgtasks.ai_embedding_task",
 )
 
 FILE_SIZE_LIMIT = int(os.environ.get("FILE_SIZE_LIMIT", 5242880))
