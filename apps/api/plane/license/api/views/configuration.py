@@ -24,9 +24,14 @@ from .base import BaseAPIView
 from plane.license.api.permissions import InstanceAdminPermission
 from plane.license.models import InstanceConfiguration
 from plane.license.api.serializers import InstanceConfigurationSerializer
-from plane.license.utils.encryption import encrypt_data
+from plane.license.utils.encryption import MASKED_VALUE, encrypt_data
 from plane.utils.cache import cache_response, invalidate_cache
 from plane.license.utils.instance_value import get_email_configuration
+from plane.utils.instance_config_variables import instance_config_variables
+
+# Metadata (category / is_encrypted) for every known configuration key, so a PATCH
+# can create rows that were declared after an instance was first booted.
+CONFIG_VARIABLE_METADATA = {variable["key"]: variable for variable in instance_config_variables}
 
 
 class InstanceConfigurationEndpoint(BaseAPIView):
@@ -41,20 +46,35 @@ class InstanceConfigurationEndpoint(BaseAPIView):
     @invalidate_cache(path="/api/instances/configurations/", user=False)
     @invalidate_cache(path="/api/instances/", user=False)
     def patch(self, request):
-        configurations = InstanceConfiguration.objects.filter(key__in=request.data.keys())
+        for key, raw_value in request.data.items():
+            meta = CONFIG_VARIABLE_METADATA.get(key)
+            configuration = InstanceConfiguration.objects.filter(key=key).first()
+            if configuration is None and meta is None:
+                # Unknown key: ignore rather than persist arbitrary config.
+                continue
 
-        bulk_configurations = []
-        for configuration in configurations:
-            raw_value = request.data.get(configuration.key, configuration.value)
+            is_encrypted = configuration.is_encrypted if configuration else meta.get("is_encrypted", False)
+            if is_encrypted and raw_value in (None, "", MASKED_VALUE):
+                # Secret left untouched: the serializer only ever returns MASKED_VALUE
+                # for stored secrets, so treat it (and blanks) as "no change".
+                continue
+
             value = "" if raw_value is None else str(raw_value).strip()
-            if configuration.is_encrypted:
-                configuration.value = encrypt_data(value)
-            else:
+            if is_encrypted:
+                value = encrypt_data(value)
+
+            if configuration is not None:
                 configuration.value = value
-            bulk_configurations.append(configuration)
+                configuration.save(update_fields=["value"])
+            else:
+                InstanceConfiguration.objects.create(
+                    key=key,
+                    value=value,
+                    category=meta.get("category", ""),
+                    is_encrypted=meta.get("is_encrypted", False),
+                )
 
-        InstanceConfiguration.objects.bulk_update(bulk_configurations, ["value"], batch_size=100)
-
+        configurations = InstanceConfiguration.objects.filter(key__in=request.data.keys())
         serializer = InstanceConfigurationSerializer(configurations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

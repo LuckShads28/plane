@@ -4,7 +4,7 @@
 
 from .base import BaseSerializer
 from plane.license.models import InstanceConfiguration
-from plane.license.utils.encryption import decrypt_data
+from plane.license.utils.encryption import MASKED_VALUE
 
 
 class InstanceConfigurationSerializer(BaseSerializer):
@@ -14,8 +14,10 @@ class InstanceConfigurationSerializer(BaseSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Decrypt secrets value
-        if instance.is_encrypted and instance.value is not None:
-            data["value"] = decrypt_data(instance.value)
+        # Never return stored secrets in plaintext. Report whether a value is set
+        # so the admin UI can render a "configured" state without exposing it.
+        if instance.is_encrypted:
+            data["is_set"] = bool(instance.value)
+            data["value"] = MASKED_VALUE if instance.value else ""
 
         return data

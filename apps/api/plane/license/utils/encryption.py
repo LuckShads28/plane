@@ -9,6 +9,10 @@ from cryptography.fernet import Fernet
 
 from plane.utils.exception_logger import log_exception
 
+# Sentinel returned by configuration serializers in place of a stored secret.
+# The corresponding PATCH handler treats this value as "leave unchanged".
+MASKED_VALUE = "********"
+
 
 def derive_key(secret_key):
     # Use a key derivation function to get a suitable encryption key
