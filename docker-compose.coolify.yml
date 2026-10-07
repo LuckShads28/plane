@@ -1,11 +1,33 @@
+# Coolify-oriented compose for a self-hosted Plane fork.
+#
+# Differences from the default docker-compose.yml:
+#   - Every service reads the single root `.env` (Coolify writes it from the
+#     environment variables you set in the UI). The default compose reads
+#     ./apps/api/.env, which Coolify does not create.
+#   - Volumes have explicit, stable names so Coolify redeploys reuse the same
+#     Postgres/Redis/MinIO/RabbitMQ data instead of creating new volumes when
+#     the Compose project name changes.
+#   - Postgres uses the pgvector image (required by the AI/RAG migrations).
+#   - The bundled Caddy proxy binds to configurable ports so it does not clash
+#     with Coolify's own reverse proxy; point your Coolify domain at it.
+#
+# Usage (in Coolify: a "Docker Compose" resource pointing at this repo):
+#   docker compose -f docker-compose.coolify.yml up -d --build
+#
+# Required environment variables (set in Coolify):
+#   SECRET_KEY, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
+#   RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_VHOST,
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET_NAME,
+#   APP_BASE_URL, ADMIN_BASE_URL, SPACE_BASE_URL, LIVE_BASE_URL,
+#   CORS_ALLOWED_ORIGINS, LISTEN_HTTP_PORT (optional, default 8080),
+#   LLM_* (optional), AI_RATE_LIMIT (optional)
+
 services:
   web:
     container_name: web
     build:
       context: .
       dockerfile: ./apps/web/Dockerfile.web
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
     depends_on:
       - api
@@ -15,8 +37,6 @@ services:
     build:
       context: .
       dockerfile: ./apps/admin/Dockerfile.admin
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
     depends_on:
       - api
@@ -27,8 +47,6 @@ services:
     build:
       context: .
       dockerfile: ./apps/space/Dockerfile.space
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
     depends_on:
       - api
@@ -39,12 +57,10 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile.api
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - plane-db
       - plane-redis
@@ -54,12 +70,10 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile.api
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-worker.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - api
       - plane-db
@@ -70,12 +84,10 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile.api
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-beat.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - api
       - plane-db
@@ -86,12 +98,10 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile.api
-      args:
-        DOCKER_BUILDKIT: 1
-    restart: no
+    restart: "no"
     command: ./bin/docker-entrypoint-migrator.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - plane-db
       - plane-redis
@@ -101,8 +111,6 @@ services:
     build:
       context: .
       dockerfile: ./apps/live/Dockerfile.live
-      args:
-        DOCKER_BUILDKIT: 1
     restart: always
 
   plane-db:
@@ -151,7 +159,7 @@ services:
       MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
       MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
 
-  # Comment this if you already have a reverse proxy running
+  # Bundled reverse proxy. Coolify routes your domain to the mapped HTTP port.
   proxy:
     container_name: proxy
     build:
@@ -159,8 +167,8 @@ services:
       dockerfile: Dockerfile.ce
     restart: always
     ports:
-      - ${LISTEN_HTTP_PORT}:80
-      - ${LISTEN_HTTPS_PORT}:443
+      - ${LISTEN_HTTP_PORT:-8080}:80
+      - ${LISTEN_HTTPS_PORT:-8443}:443
     environment:
       FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
       BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
@@ -172,6 +180,10 @@ services:
 
 volumes:
   pgdata:
+    name: plane_pgdata
   redisdata:
+    name: plane_redisdata
   uploads:
+    name: plane_uploads
   rabbitmq_data:
+    name: plane_rabbitmq_data

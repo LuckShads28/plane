@@ -36,6 +36,8 @@ uvicorn==0.29.0
 channels==4.3.2
 # ai
 openai==1.63.2
+# vector storage for semantic search / RAG (requires the pgvector Postgres extension)
+pgvector==0.3.6
 # slack
 slack-sdk==3.27.1
 # apm
